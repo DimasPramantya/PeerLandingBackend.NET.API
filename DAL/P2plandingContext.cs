@@ -17,6 +17,8 @@ public partial class P2plandingContext : DbContext
     }
 
     public virtual DbSet<MstUser> MstUsers { get; set; }
+    public virtual DbSet<MstLoans> MstLoans { get; set; }
+    public virtual DbSet<Funding> Fundings { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.UseNpgsql("Name=ConnectionStrings:DefaultConnection");
