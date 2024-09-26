@@ -314,7 +314,7 @@ namespace BEPeer.Controllers
             }
         }
 
-        [Authorize(Roles = "admin")]
+        //[Authorize(Roles = "admin")]
         [HttpGet]
         [Route("{id}")]
         public async Task<IActionResult> GetById(string id)

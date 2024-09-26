@@ -117,7 +117,7 @@ namespace DAL.Repositories.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public async Task<ResUserDto> GetUserById(string id)
+        public async Task<ResSingleUserDto> GetUserById(string id)
         {
             var user = await _context.MstUsers.SingleOrDefaultAsync(x => x.Id == id);
             if(user == null)
@@ -129,11 +129,10 @@ namespace DAL.Repositories.Services
                     StatusCode = StatusCodes.Status404NotFound
                 };
             }
-            var result = new ResUserDto
+            var result = new ResSingleUserDto
             {
                 Id = user.Id,
                 Name = user.Name,
-                Email = user.Email,
                 Role = user.Role,
                 Balance = user.Balance
             };

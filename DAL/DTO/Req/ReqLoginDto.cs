@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace DAL.DTO.Req
 {
-    public interface ReqLoginDto
+    public class ReqLoginDto
     {
 
         [Required(ErrorMessage = "Email is required")]
