@@ -1,11 +1,12 @@
-﻿using System;
+﻿using DAL.Enum;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DAL.DTO.Req
+namespace DAL.DTO.Req.UserDto
 {
     public class ReqRegisterUserDto
     {

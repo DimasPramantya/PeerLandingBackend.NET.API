@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DAL.Enum;
 using DAL.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,14 +19,15 @@ public partial class P2plandingContext : DbContext
 
     public virtual DbSet<MstUser> MstUsers { get; set; }
     public virtual DbSet<MstLoans> MstLoans { get; set; }
-    public virtual DbSet<Funding> Fundings { get; set; }
+    public virtual DbSet<CashFlow> CashFlows { get; set; }
+    public virtual DbSet<TrnRepayment> TrnRepayments { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.UseNpgsql("Name=ConnectionStrings:DefaultConnection");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<MstUser>(entity =>
+        modelBuilder.Entity<MstUser>(static entity =>
         {
             entity.HasKey(e => e.Id).HasName("mst_user_pkey");
 
@@ -42,9 +44,16 @@ public partial class P2plandingContext : DbContext
             entity.Property(e => e.Password)
                 .HasMaxLength(150)
                 .HasColumnName("password");
-            entity.Property(e => e.Role)
-                .HasMaxLength(30)
-                .HasColumnName("role");
+
+            entity.HasMany(u => u.Loans)
+            .WithOne(l => l.Borrower)
+            .HasForeignKey(l => l.BorrowerId)
+            .OnDelete(DeleteBehavior.Cascade); 
+
+            entity.HasMany(u => u.Fundings)
+                .WithOne(l => l.Lender)
+                .HasForeignKey(l => l.LenderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         OnModelCreatingPartial(modelBuilder);

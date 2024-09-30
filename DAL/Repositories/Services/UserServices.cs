@@ -1,5 +1,8 @@
 ﻿using DAL.DTO.Req;
+using DAL.DTO.Req.Pagination;
+using DAL.DTO.Req.UserDto;
 using DAL.DTO.Res;
+using DAL.DTO.Res.UserDto;
 using DAL.Models;
 using DAL.Repositories.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -28,24 +31,58 @@ namespace DAL.Repositories.Services
             _configuration = configuration;
         }
 
-        public async Task<List<ResUserDto>> GetAllUsers()
+        public async Task<List<ResUserDto>> GetAllUsers(ReqPaginationQuery paginationQuery)
         {
-            return await _context.MstUsers.Select(
-                user => new ResUserDto
+            int skip = (paginationQuery.PageNumber - 1) * paginationQuery.PageSize;
+
+            var query = _context.MstUsers.AsQueryable();
+
+            if (string.Equals(paginationQuery.OrderDirection, "asc", StringComparison.OrdinalIgnoreCase))
+            {
+                query = paginationQuery.OrderBy switch
+                {
+                    "Email" => query.OrderBy(user => user.Email),
+                    "Role" => query.OrderBy(user => user.Role),
+                    "Balance" => query.OrderBy(user => user.Balance),
+                    "CreatedAt" => query.OrderBy(user => user.CreatedAt),
+                    "UpdatedAt" => query.OrderBy(user => user.UpdatedAt),
+                    _ => query.OrderBy(user => user.Name),
+                };
+            }
+            else
+            {
+                query = paginationQuery.OrderBy switch
+                {
+                    "Email" => query.OrderByDescending(user => user.Email),
+                    "Role" => query.OrderByDescending(user => user.Role),
+                    "Balance" => query.OrderByDescending(user => user.Balance),
+                    "CreatedAt" => query.OrderBy(user => user.CreatedAt),
+                    "UpdatedAt" => query.OrderBy(user => user.UpdatedAt),
+                    _ => query.OrderByDescending(user => user.Name),
+                };
+            }
+
+
+            var result = await query
+                .Where(user => !user.IsDeleted)
+                .Select(user => new ResUserDto
                 {
                     Id = user.Id,
                     Name = user.Name,
                     Email = user.Email,
                     Role = user.Role,
-                    Balance = user.Balance
-                }
-            ).Where(ResBaseDto => ResBaseDto.Role != "admin").ToListAsync();
+                    Balance = user.Balance,
+                })
+                .Skip(skip)
+                .Take(paginationQuery.PageSize)
+                .ToListAsync();
+            return result;
         }
 
         public async Task<ResLoginDto> Login(ReqLoginDto login)
         {
             var user = await _context.MstUsers.SingleOrDefaultAsync(x => x.Email == login.Email);
-            if (user == null)
+            if (user == null || user.IsDeleted)
             {
                 throw new ResErrorDto
                 {
@@ -71,12 +108,13 @@ namespace DAL.Repositories.Services
         public async Task<string> Register(ReqRegisterUserDto register)
         {
             var isAnyEmail = await _context.MstUsers.SingleOrDefaultAsync(x => x.Email == register.Email);
-            if (isAnyEmail !=null)
+            if (isAnyEmail != null)
             {
-               throw new ResErrorDto {
+                throw new ResErrorDto
+                {
                     Message = "Email already used",
                     StatusCode = StatusCodes.Status400BadRequest
-               };
+                };
             }
             var user = new MstUser
             {
@@ -101,16 +139,17 @@ namespace DAL.Repositories.Services
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Role, user.Role),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.Email, user.Email)
             };
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["ValidIssuer"],
                 audience: jwtSettings["ValidAudience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(2),
+                expires: DateTime.Now.AddHours(50),
                 signingCredentials: credentials
             );
 
@@ -120,7 +159,7 @@ namespace DAL.Repositories.Services
         public async Task<ResSingleUserDto> GetUserById(string id)
         {
             var user = await _context.MstUsers.SingleOrDefaultAsync(x => x.Id == id);
-            if(user == null)
+            if (user == null)
             {
                 throw new ResErrorDto
                 {
@@ -141,13 +180,24 @@ namespace DAL.Repositories.Services
 
         public async Task DeleteUserById(string id)
         {
-            await _context.MstUsers.Where(x => x.Id == id).ExecuteDeleteAsync();
+            var user = await _context.MstUsers.SingleOrDefaultAsync(x => x.Id == id);
+            if (user == null)
+            {
+                throw new ResErrorDto
+                {
+                    Message = "User Not Found!!!",
+                    StatusCode = StatusCodes.Status404NotFound
+                };
+            }
+            user.IsDeleted = true;
+            _context.MstUsers.Update(user);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<ResUserDto> UpdateUserById(string id, ReqEditUserDto dto)
         {
             var user = await _context.MstUsers.SingleOrDefaultAsync(x => x.Id == id);
-            if(user == null)
+            if (user == null)
             {
                 throw new ResErrorDto
                 {
@@ -168,6 +218,50 @@ namespace DAL.Repositories.Services
                 Role = user.Role,
                 Balance = user.Balance
             };
+        }
+
+        public Task<int> GetCount(ReqPaginationQuery paginationQuery)
+        {
+            int skip = (paginationQuery.PageNumber - 1) * paginationQuery.PageSize;
+
+            var query = _context.MstUsers.AsQueryable();
+
+            if (string.Equals(paginationQuery.OrderDirection, "asc", StringComparison.OrdinalIgnoreCase))
+            {
+                query = paginationQuery.OrderBy switch
+                {
+                    "Email" => query.OrderBy(user => user.Email),
+                    "Role" => query.OrderBy(user => user.Role),
+                    "Balance" => query.OrderBy(user => user.Balance),
+                    "CreatedAt" => query.OrderBy(user => user.CreatedAt),
+                    "UpdatedAt" => query.OrderBy(user => user.UpdatedAt),
+                    _ => query.OrderBy(user => user.Name),
+                };
+            }
+            else
+            {
+                query = paginationQuery.OrderBy switch
+                {
+                    "Email" => query.OrderByDescending(user => user.Email),
+                    "Role" => query.OrderByDescending(user => user.Role),
+                    "Balance" => query.OrderByDescending(user => user.Balance),
+                    "CreatedAt" => query.OrderBy(user => user.CreatedAt),
+                    "UpdatedAt" => query.OrderBy(user => user.UpdatedAt),
+                    _ => query.OrderByDescending(user => user.Name),
+                };
+            }
+
+
+            return query
+                .Select(user => new ResUserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = user.Role,
+                    Balance = user.Balance
+                })
+                .CountAsync();
         }
     }
 }

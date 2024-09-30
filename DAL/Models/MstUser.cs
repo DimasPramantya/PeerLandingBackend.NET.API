@@ -1,9 +1,9 @@
-﻿using System;
+﻿using DAL.Models;
+using System;
 using System.Collections.Generic;
 
-namespace DAL.Models;
 
-public partial class MstUser
+public class MstUser
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
 
@@ -16,7 +16,11 @@ public partial class MstUser
     public string Role { get; set; } = null!;
 
     public decimal Balance { get; set; }
+    public bool IsDeleted { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public List<MstLoans> Loans { get; set; } = new List<MstLoans>();
-    public List<Funding> Fundings { get; set; } = new List<Funding>();
+    public List<MstLoans> Fundings { get; set; } = new List<MstLoans>();
+    public List<CashFlow> CashFlows { get; set; } = new List<CashFlow>();
 }

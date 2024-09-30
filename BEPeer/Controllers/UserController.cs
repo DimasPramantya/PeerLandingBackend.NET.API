@@ -1,10 +1,18 @@
 ﻿using DAL.DTO.Req;
+using DAL.DTO.Req.Cash_Flow;
+using DAL.DTO.Req.Pagination;
+using DAL.DTO.Req.UserDto;
 using DAL.DTO.Res;
+using DAL.DTO.Res.CashFlow;
+using DAL.DTO.Res.UserDto;
+using DAL.Enum;
 using DAL.Repositories.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
 
 namespace BEPeer.Controllers
@@ -14,9 +22,13 @@ namespace BEPeer.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserServices _userServices;
-        public UserController(IUserServices userServices)
+        private readonly IConfiguration _configuration;
+        private readonly ICashFlowServices _cashFlowServices;
+        public UserController(IUserServices userServices, IConfiguration configuration, ICashFlowServices cashFlowServices)
         {
             _userServices = userServices;
+            _configuration = configuration;
+            _cashFlowServices = cashFlowServices;
         }
 
         [Route("register")]
@@ -112,6 +124,7 @@ namespace BEPeer.Controllers
             }
             catch (ResErrorDto ex)
             {
+                Console.WriteLine("Error add user: " + ex.Message);
                 return StatusCode(ex.StatusCode, new ResBaseDto<object>
                 {
                     Success = false,
@@ -121,6 +134,7 @@ namespace BEPeer.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Error add user: " + ex.Message);
                 return StatusCode(StatusCodes.Status500InternalServerError, new ResBaseDto<string>
                 {
                     Success = false,
@@ -133,16 +147,44 @@ namespace BEPeer.Controllers
         [Authorize(Roles = "admin")]
         [Route("")]
         [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
+        public async Task<IActionResult> GetAll(
+            [FromQuery] ReqPaginationQuery paginationQuery
+        ){
             try
             {
-                var users = await _userServices.GetAllUsers();
-                return Ok(new ResBaseDto<List<ResUserDto>>
+                var baseUrl = _configuration.GetSection("BaseURL").Value;
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState
+                        .Where(x => x.Value.Errors.Any())
+                        .Select(x => new
+                        {
+                            Field = x.Key,
+                            Messages = x.Value.Errors.Select(e => e.ErrorMessage).ToList()
+                        }).ToList();
+                    var errorMessage = new StringBuilder("Validation error occured!");
+                    return BadRequest(new ResBaseDto<object>
+                    {
+                        Success = false,
+                        Message = errorMessage.ToString(),
+                        Data = errors
+                    });
+                };
+
+                var pagination = new ResPagination<List<ResUserDto>>();
+                pagination.OrderBy = paginationQuery.OrderBy ?? "CreatedAt";
+                pagination.OrderDirection = paginationQuery.OrderDirection ?? "asc";
+                pagination.PageNumber = paginationQuery.PageNumber;
+                pagination.PageSize = paginationQuery.PageSize;
+                pagination.Records = await _userServices.GetAllUsers(paginationQuery);
+                pagination.TotalRecords = await _userServices.GetCount(paginationQuery);
+                pagination.SetUrls($"{baseUrl}{Request.Path.Value}");
+
+                return Ok(new ResBaseDto<ResPagination<List<ResUserDto>>>
                 {
                     Success = true,
                     Message = "User fetched succesfully",
-                    Data = users
+                    Data = pagination
                 });
             }
             catch (ResErrorDto ex)
@@ -198,6 +240,7 @@ namespace BEPeer.Controllers
             }
             catch (ResErrorDto ex)
             {
+                Console.WriteLine("Error login: " + ex.Message);
                 return StatusCode(ex.StatusCode, new ResBaseDto<object>
                 {
                     Success = false,
@@ -207,6 +250,7 @@ namespace BEPeer.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Error login: " + ex.Message);
                 if (ex.Message == "Invalid Email or Password")
                 {
                     return StatusCode(StatusCodes.Status401Unauthorized, new ResBaseDto<object>
@@ -261,7 +305,7 @@ namespace BEPeer.Controllers
             }
         }
 
-        [Authorize(Roles = "admin")]
+        [Authorize]
         [HttpPut]
         [Route("{id}")]
         public async Task<IActionResult> Update(string id, ReqEditUserDto dto)
@@ -314,11 +358,12 @@ namespace BEPeer.Controllers
             }
         }
 
-        //[Authorize(Roles = "admin")]
+        [Authorize]
         [HttpGet]
         [Route("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
+            Console.WriteLine(id);
             try
             {
                 var user = await _userServices.GetUserById(id);
@@ -327,6 +372,153 @@ namespace BEPeer.Controllers
                     Success = true,
                     Message = "User fetched successfully",
                     Data = user
+                });
+            }
+            catch (ResErrorDto ex)
+            {
+                return StatusCode(ex.StatusCode, new ResBaseDto<object>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Data = null,
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ResBaseDto<string>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Data = null
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpGet]
+        [Route("me")]
+        public async Task<IActionResult> GetMe()
+        {
+            try
+            {
+                var id = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value;
+                Console.WriteLine(id);
+                Console.WriteLine("Test");
+                if (string.IsNullOrEmpty(id))
+                {
+                    return Unauthorized(new ResBaseDto<string>
+                    {
+                        Success = false,
+                        Message = "User ID not found in token",
+                        Data = null
+                    });
+                }
+
+                var user = await _userServices.GetUserById(id);
+                return Ok(new ResBaseDto<object>
+                {
+                    Success = true,
+                    Message = "User fetched successfully",
+                    Data = user
+                });
+            }
+            catch (ResErrorDto ex)
+            {
+                return StatusCode(ex.StatusCode, new ResBaseDto<object>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Data = null,
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ResBaseDto<string>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Data = null
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPatch]
+        [Route("balances")]
+        public async Task<IActionResult> UpdateBalance([FromBody] ReqCashFlowDto reqCashFlowDto)
+        {
+            try
+            {
+                var id = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(id))
+                {
+                    return Unauthorized(new ResBaseDto<string>
+                    {
+                        Success = false,
+                        Message = "User ID not found in token",
+                        Data = null
+                    });
+                }
+                var cashFlow = await _cashFlowServices.CreateCashFlow(id, reqCashFlowDto);
+                return Ok(new ResBaseDto<object>
+                {
+                    Success = true,
+                    Message = "Balance updated successfully",
+                    Data = cashFlow
+                });
+            }
+            catch (ResErrorDto ex)
+            {
+                return StatusCode(ex.StatusCode, new ResBaseDto<object>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Data = null,
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ResBaseDto<string>
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Data = null
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpGet]
+        [Route("me/cash-flow")]
+        public async Task<IActionResult> GetUserCashFlows([FromQuery] ReqPaginationQuery paginationQuery)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("BaseURL").Value;
+                var id = User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(id))
+                {
+                    return Unauthorized(new ResBaseDto<string>
+                    {
+                        Success = false,
+                        Message = "User ID not found in token",
+                        Data = null
+                    });
+                }
+                var pagination = new ResPagination<List<ResCashFlowDto>>();
+                pagination.OrderBy = paginationQuery.OrderBy ?? "CreatedAt";
+                pagination.OrderDirection = paginationQuery.OrderDirection ?? "asc";
+                pagination.PageNumber = paginationQuery.PageNumber;
+                pagination.PageSize = paginationQuery.PageSize;
+                pagination.Records = await _cashFlowServices.GetUserCashFlows(id, paginationQuery);
+                pagination.TotalRecords = await _cashFlowServices.CountUserCashFlows(id, paginationQuery);
+                pagination.SetUrls($"{baseUrl}{Request.Path.Value}");
+
+                return Ok(new ResBaseDto<ResPagination<List<ResCashFlowDto>>>
+                {
+                    Success = true,
+                    Message = "User fetched succesfully",
+                    Data = pagination
                 });
             }
             catch (ResErrorDto ex)

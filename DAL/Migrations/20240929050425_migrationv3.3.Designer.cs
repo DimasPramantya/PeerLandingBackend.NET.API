@@ -3,6 +3,7 @@ using System;
 using DAL;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DAL.Migrations
 {
     [DbContext(typeof(P2plandingContext))]
-    partial class P2plandingContextModelSnapshot : ModelSnapshot
+    [Migration("20240929050425_migrationv3.3")]
+    partial class migrationv33
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,6 +33,14 @@ namespace DAL.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("numeric")
                         .HasColumnName("amount");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("numeric")
+                        .HasColumnName("balance_after");
+
+                    b.Property<decimal>("BalanceBefore")
+                        .HasColumnType("numeric")
+                        .HasColumnName("balance_before");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -97,11 +108,11 @@ namespace DAL.Migrations
                         .HasColumnType("text")
                         .HasColumnName("status");
 
-                    b.Property<decimal>("TotalAmount")
+                    b.Property<decimal?>("TotalAmount")
                         .HasColumnType("numeric")
                         .HasColumnName("total_amount");
 
-                    b.Property<decimal>("TotalRepaid")
+                    b.Property<decimal?>("TotalRepaid")
                         .HasColumnType("numeric")
                         .HasColumnName("total_repaid");
 
@@ -137,7 +148,7 @@ namespace DAL.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("RepaidAt")
+                    b.Property<DateTime>("RepaidAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("repaid_at");
 
@@ -174,9 +185,6 @@ namespace DAL.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("email");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -1,11 +1,12 @@
-﻿using System;
+﻿using DAL.Enum;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DAL.DTO.Req
+namespace DAL.DTO.Req.UserDto
 {
     public class ReqEditUserDto
     {
@@ -14,8 +15,8 @@ namespace DAL.DTO.Req
 
         [Required(ErrorMessage = "Role is required")]
         public string Role { get; set; }
-        
+
         [Range(0, double.MaxValue, ErrorMessage = "Balance must be a positive number")]
-        public decimal? Balance { get; set; } 
+        public decimal? Balance { get; set; }
     }
 }

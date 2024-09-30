@@ -20,6 +20,15 @@ builder.Services.AddControllers()
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAllOrigins",
+        builder => builder
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+});
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -79,6 +88,8 @@ builder.Services.AddDbContext<P2plandingContext>(options =>
 );
 builder.Services.AddScoped<IUserServices, UserServices>();
 builder.Services.AddScoped<ILoanServices, LoanServices>();
+builder.Services.AddScoped<ICashFlowServices, CashFlowServices>();
+builder.Services.AddScoped<IRepaymentServices, RepaymentServices>();
 
 var app = builder.Build();
 
@@ -88,6 +99,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseCors("AllowAllOrigins");
 
 app.UseHttpsRedirection();
 

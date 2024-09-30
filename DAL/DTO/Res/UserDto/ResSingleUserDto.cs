@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DAL.DTO.Res
+namespace DAL.DTO.Res.UserDto
 {
     public class ResSingleUserDto
     {
